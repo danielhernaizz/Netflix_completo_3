@@ -1,0 +1,870 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Little Netflix - Movie list with TMDb search</title>
+    <meta name="description" content="My Little Netflix: manage your own movie list (view, add, edit, delete) and search movies and keywords in The Movie Database (TMDb).">
+    <meta name="keywords" content="movies, movie database, TMDb, keywords, JavaScript, MVC, localStorage">
+    <meta name="author" content="Daniel Hernaiz">
+    <meta name="language" content="EN">
+    <meta name="robots" content="index, follow">
+    <meta name="theme-color" content="#6200ee">
+    <link rel="canonical" href="https://danielhernaizz.github.io/Netflix2_completo/">
+
+    <!-- Open Graph / Twitter Cards: how the page looks when it is shared -->
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="My Little Netflix - Movie list with TMDb search">
+    <meta property="og:description" content="Manage your own movie list and search movies and keywords in TMDb.">
+    <meta property="og:url" content="https://danielhernaizz.github.io/Netflix2_completo/">
+    <meta property="og:image" content="https://danielhernaizz.github.io/Netflix2_completo/files/interstellar.png">
+    <meta property="og:image:alt" content="Poster of the movie Interstellar">
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="My Little Netflix - Movie list with TMDb search">
+    <meta name="twitter:description" content="Manage your own movie list and search movies and keywords in TMDb.">
+    <meta name="twitter:image" content="https://danielhernaizz.github.io/Netflix2_completo/files/interstellar.png">
+
+    <!-- Inline SVG favicon -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%236200ee'/%3E%3Cpolygon points='10,8 16,12 10,16' fill='white'/%3E%3C/svg%3E">
+    <link href="https://fonts.googleapis.com/css?family=Roboto&display=swap" rel="stylesheet">
+    <style>
+        body { --primary: #6200ee; --primary-dark: #4a00b8; --danger: #c62828; --bg: #f5f3fa; margin: 0px; background: var(--bg); min-height: 100vh; display: flex; flex-direction: column; }
+        * {font-family: 'Roboto', sans-serif; box-sizing: border-box;}
+
+        /* ---------- Buttons (transition: only the properties that change) ---------- */
+        button {
+            -webkit-font-smoothing: antialiased;
+            display: inline-block;
+            margin: 2px;
+            color: var(--primary);
+            background: white;
+            border: 1px solid var(--primary);
+            border-radius: 4px;
+            height: 30px;
+            font-size: 11px;
+            text-transform: uppercase;
+            cursor: pointer;
+            transition: background-color 200ms ease-in, color 200ms ease-in, transform 150ms ease-out;
+            padding: 0 14px;
+        }
+        button:hover { background: var(--primary); color: white; }
+        button:active { transform: scale(0.95); }
+        button.delete, button.delete-keyword { color: var(--danger); border-color: var(--danger); }
+        button.delete:hover, button.delete-keyword:hover { background: var(--danger); color: white; }
+        button.update, button.create, button.new { background: var(--primary); color: white; }
+        button.update:hover, button.create:hover, button.new:hover { background: var(--primary-dark); }
+        button:focus-visible, a:focus-visible, input:focus-visible { outline: 3px solid var(--secondary, #29b6f6); outline-offset: 2px; }
+
+        /* ---------- Page structure (semantic HTML5: header, nav, main, footer) ---------- */
+        header { background: var(--primary); box-shadow: 0 2px 6px rgba(0,0,0,.25); }
+        h1 { color: white; font-weight: 300; text-transform: uppercase; font-size: 22px; margin: 0px; padding: 0; }
+        h1 a { display: flex; align-items: center; gap: 12px; padding: 18px 24px; color: white; text-decoration: none; }
+        h2 { margin: 0 0 16px 0; font-size: 22px; color: var(--primary); }
+        main { flex: 1; width: 100%; padding: 20px 24px; max-width: 1100px; margin: 0 auto; }
+        footer { padding: 16px 24px; text-align: center; font-size: 12px; color: #666; }
+        footer a { color: var(--primary); }
+
+        /* Inline SVG logo: styled with CSS and animated with transform + transition */
+        svg.logo { width: 28px; height: 28px; pointer-events: none; transform-origin: center; transition: transform 500ms ease-in-out; }
+        svg.logo circle { fill: none; stroke: white; stroke-width: 2; }
+        svg.logo polygon { fill: white; }
+        h1 a:hover svg.logo { transform: rotate(360deg) scale(1.15); }
+
+        /* Breadcrumb navigation */
+        nav.breadcrumb { margin-bottom: 12px; font-size: 13px; }
+        nav.breadcrumb ol { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+        nav.breadcrumb li + li::before { content: "›"; margin-right: 6px; color: #999; }
+        nav.breadcrumb a { color: var(--primary); text-decoration: none; }
+        nav.breadcrumb a:hover { text-decoration: underline; }
+        nav.breadcrumb li[aria-current] { color: #555; }
+
+        div.toolbar { margin-bottom: 18px; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+        div.toolbar .count { margin-left: auto; color: #666; font-size: 13px; }
+
+        /* ---------- Movie cards ---------- */
+        div.movies { display: flex; flex-wrap: wrap; gap: 18px; }
+        div.movie { width: 220px; padding: 10px; background: white; border-radius: 6px; box-shadow: 2px 2px 8px #ccc;
+                    transition: transform 150ms ease-out, box-shadow 150ms ease-out; }
+        div.movie:hover { transform: translateY(-3px); box-shadow: 4px 6px 14px #bbb; }
+        div.movie div.movie-img { width: 100%; aspect-ratio: 2 / 3; overflow: hidden; border-radius: 4px; background: #eee; cursor: pointer; }
+        div.movie div.movie-img img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform 300ms ease-out; }
+        div.movie:hover div.movie-img img { transform: scale(1.05); }
+        .movie .title { text-align: center; overflow: hidden; text-overflow: ellipsis; width: 100%; white-space: nowrap; margin: 8px 0 0 0; font-size: 17px; font-weight: 400; }
+        div.movie div.actions { margin-top: 8px; text-align: center; white-space: nowrap; }
+        div.movie div.actions button { padding: 0 8px; margin: 2px 1px; }
+        div.empty { padding: 40px; text-align: center; color: #666; background: white; border-radius: 6px; }
+
+        div.card { background: white; border-radius: 6px; box-shadow: 2px 2px 8px #ccc; padding: 24px; max-width: 760px; }
+        div.detail { display: flex; gap: 24px; flex-wrap: wrap; }
+        div.detail img { width: 240px; height: 340px; object-fit: cover; border-radius: 4px; box-shadow: 2px 2px 8px #ccc; }
+        div.detail div.info { flex: 1; min-width: 220px; }
+        div.detail p { margin: 0 0 14px 0; font-size: 18px; }
+        div.field { color: var(--primary); text-transform: uppercase; font-size: 12px; margin-bottom: 4px; }
+        div.form-row { margin-bottom: 14px; }
+        input { width: 100%; max-width: 420px; padding: 8px; font-size: 14px; border: 1px solid #aaa; border-radius: 4px; transition: border-color 200ms ease-in, box-shadow 200ms ease-in; }
+        input:focus { border-color: var(--primary); box-shadow: 0 0 0 2px rgba(98,0,238,.2); }
+        p.hint { color: #666; font-size: 13px; margin: 0 0 16px 0; }
+        div.actions { margin-top: 14px; }
+
+        /* ---------- Part 2: TMDb search ---------- */
+        div.message { margin: 14px 0 0 0; padding: 0; font-size: 14px; }
+        div.message:empty { display: none; }
+        div.message.error   { padding: 10px 12px; border-radius: 4px; background: #fdecea; color: var(--danger); animation: shake 350ms ease-in-out; }
+        div.message.success { padding: 10px 12px; border-radius: 4px; background: #e8f5e9; color: #2e7d32; animation: pop 300ms ease-out; }
+        div.message.info    { padding: 10px 12px; border-radius: 4px; background: #ede7f6; color: var(--primary-dark); }
+        div.message.info::before { content: ""; display: inline-block; width: 12px; height: 12px; margin-right: 8px; vertical-align: -2px;
+                                   border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+                                   animation: spin 700ms linear infinite; }
+        div.token-box { background: #fff8e1; border-radius: 4px; padding: 12px; margin-bottom: 16px; font-size: 13px; }
+        div.token-box code { background: #fff; padding: 1px 4px; border-radius: 3px; }
+        div.search-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+        div.search-row input { flex: 1; min-width: 200px; }
+        div.search-row button { margin: 0; height: 36px; }
+        div.movie div.meta { font-size: 12px; color: #666; text-align: center; margin-top: 2px; }
+        div.movie div.overview { font-size: 12px; color: #333; margin-top: 8px; height: 64px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; }
+        div.movie.result .title { white-space: normal; height: 42px; font-size: 15px; }
+        div.movie.result div.movie-img { cursor: default; }
+        button:disabled { opacity: .5; cursor: not-allowed; }
+        button:disabled:hover { background: white; color: var(--primary); }
+
+        /* ---------- Part 3: keywords + gestures (drag & drop) ---------- */
+        ul.keyword-list { list-style: none; margin: 0; padding: 0; }
+        ul.keyword-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 4px; border-bottom: 1px solid #eee; font-size: 15px;
+                             cursor: grab; transition: opacity 200ms ease-in, background-color 200ms ease-in; }
+        ul.keyword-list li:hover { background: #faf8ff; }
+        ul.keyword-list li:last-child { border-bottom: none; }
+        ul.keyword-list li.dragging { opacity: .4; }
+        div.dropzone { margin-top: 14px; padding: 16px; border: 2px dashed var(--primary); border-radius: 6px; text-align: center; color: var(--primary); font-size: 14px;
+                       transition: background-color 200ms ease-in, transform 200ms ease-out; }
+        div.dropzone.over { background: #ede7f6; transform: scale(1.02); }
+        div.dropzone.trash { border-color: var(--danger); color: var(--danger); }
+        div.dropzone.trash.over { background: #fdecea; }
+
+        /* ---------- Animations (@keyframes) ---------- */
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes cardIn   { from { opacity: 0; transform: translateY(16px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes spin     { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        @keyframes pop      { 0% { transform: scale(0.96); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
+        @keyframes shake    { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-6px); } 75% { transform: translateX(6px); } }
+
+        main > *:not(.movies) { animation: fadeInUp 300ms ease-out backwards; }
+        div.movie { animation: cardIn 350ms ease-out backwards; animation-delay: calc(var(--i, 0) * 50ms); }
+
+        /* ---------- Responsive design (flexible grid + media queries) ---------- */
+        @media (max-width: 600px) {
+            h1 { font-size: 18px; }
+            h1 a { padding: 14px 16px; }
+            main { padding: 14px 12px; }
+            div.movies { gap: 12px; justify-content: center; }
+            div.movie { width: calc(50% - 6px); padding: 8px; }
+            div.movie div.actions button { padding: 0 6px; font-size: 10px; }
+            div.card { padding: 16px; }
+            div.detail img { width: 100%; height: auto; }
+        }
+
+        /* Respect the users who prefer less motion */
+        @media (prefers-reduced-motion: reduce) {
+            *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+        }
+    </style>
+
+    <!-- Configuración local opcional de la API (ver config.example.js). Este archivo NO se sube a GitHub -->
+    <script src="config.js"></script>
+
+    <script type="text/javascript">
+
+       // DATA MODEL
+
+       let initial_movies = [
+        { title: "Superlópez", director: "Javier Ruiz Caldera", thumbnail: "files/superlopez.png" },
+        { title: "Jurassic Park", director: "Steven Spielberg", thumbnail: "files/jurassicpark.png" },
+        { title: "Interstellar", director: "Christopher Nolan", thumbnail: "files/interstellar.png" }
+    ];
+
+
+        localStorage.my_movies = localStorage.my_movies || JSON.stringify(initial_movies);
+
+
+        // TMDb API (part 2)
+        // The token is NOT written in this file: it is read from config.js (not uploaded to GitHub)
+        // or, if there is none, from the token the user pastes in the search view (saved in this browser).
+        const TMDB_API = 'https://api.themoviedb.org/3';
+        const TMDB_IMG = 'https://image.tmdb.org/t/p/w300';
+        const getToken = () => (window.TMDB_CONFIG && window.TMDB_CONFIG.token) || localStorage.tmdb_token || "";
+
+        // State of the last search (needed to add a result to the local database)
+        let lastQuery = "";
+        let lastResults = [];
+        let searchCounter = 0;   // ignores answers of old searches
+
+        // Part 3: keywords. The list chosen by the user is saved in localStorage under "my_keywords"
+        localStorage.my_keywords = localStorage.my_keywords || JSON.stringify([]);
+        const keywordsCache = {};   // movieId -> keywords already processed (see processKeywords)
+
+
+        // VIEWS
+        // Escapa el texto del usuario para que no rompa el HTML (comillas, <, >, &)
+        const esc = (t) => String(t === undefined || t === null ? "" : t)
+            .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+
+        const indexView = (movies) => {
+            let i=0;
+            let view = `<div class="toolbar">
+                            <button class="new">Add</button>
+                            <button class="search-view">Search TMDb</button>
+                            <button class="my-keywords">My keywords</button>
+                            <button class="reset">Reset</button>
+                            <span class="count">${movies.length} movie(s)</span>
+                        </div>`;
+
+            if (movies.length === 0) {
+                view += `<div class="empty">There are no movies. Press <b>Add</b> to create one or <b>Reset</b> to restore the original list.</div>`;
+            }
+
+            view += `<div class="movies">`;
+            while(i < movies.length) {
+              view += `
+                <div class="movie" style="--i:${Math.min(i, 10)}">
+                   <div class="movie-img">
+                        <img class="show" data-my-id="${i}" src="${esc(movies[i].thumbnail)}" alt="Poster of ${esc(movies[i].title) || "the movie"}" title="View details" loading="lazy" onerror="this.src='files/noimage.png'"/>
+                   </div>
+                   <h3 class="title">
+                       ${esc(movies[i].title) || "<em>No title</em>"}
+                   </h3>
+                   <div class="actions">
+                       <button class="show" data-my-id="${i}">view</button>
+                       <button class="edit" data-my-id="${i}">edit</button>
+                       <button class="delete" data-my-id="${i}">delete</button>
+                    </div>
+                </div>\n`;
+              i = i + 1;
+            };
+            view += `</div>`;
+
+            return view;
+        };
+
+
+        const editView = (i, movie) => {
+            return `${crumb(HOME, { text: "Edit movie" })}<h2>Edit Movie</h2>
+                <div class="card">
+                <p class="hint">Change the data of the movie and press <b>Update</b> to save it, or <b>Back</b> to cancel.</p>
+                <div class="form-row">
+                <div class="field">Title</div>
+                <input  type="text" id="title" placeholder="Title"
+                        value="${esc(movie.title)}">
+                </div>
+                <div class="form-row">
+                <div class="field">Director</div>
+                <input  type="text" id="director" placeholder="Director"
+                        value="${esc(movie.director)}">
+                </div>
+                <div class="form-row">
+                <div class="field">Thumbnail</div>
+                <input  type="text" id="thumbnail" placeholder="Thumbnail URL"
+                        value="${esc(movie.thumbnail)}">
+                </div>
+                <div class="actions">
+                    <button class="update" data-my-id="${i}">
+                        Update
+                    </button>
+                    <button class="index">
+                        Back
+                    </button>
+                </div>
+                </div>
+               `;
+        }
+
+
+        const showView = (movie) => {
+            return `${crumb(HOME, { text: movie.title || "Movie" })}<h2>${esc(movie.title) || "<em>No title</em>"}</h2>
+             <div class="card detail">
+                <img src="${esc(movie.thumbnail)}" alt="Poster of ${esc(movie.title) || "the movie"}" onerror="this.src='files/noimage.png'"/>
+                <div class="info">
+                    <p>
+                        <div class="field">Title</div>
+                        ${esc(movie.title) || "<em>No title</em>"}
+                    </p>
+                    <p>
+                        <div class="field">Director</div>
+                        ${esc(movie.director) || "<em>No director</em>"}
+                    </p>
+                    <div class="actions">
+                        <button class="index">Back</button>
+                    </div>
+                </div>
+             </div>`;
+        }
+
+
+        const newView = () => {
+            return `${crumb(HOME, { text: "New movie" })}<h2>Create Movie</h2>
+                <div class="card">
+                <p class="hint">Fill in the data of the new movie. The title is required. If you leave the thumbnail empty a default image is used.</p>
+                <div class="form-row">
+                <div class="field">Title</div>
+                <input  type="text" id="titulo" placeholder="Title">
+                </div>
+                <div class="form-row">
+                <div class="field">Director</div>
+                <input  type="text" id="director" placeholder="Director">
+                </div>
+                <div class="form-row">
+                <div class="field">Thumbnail</div>
+                <input  type="text" id="miniatura" placeholder="Thumbnail URL (e.g. files/noimage.png)">
+                </div>
+                <div class="actions">
+                    <button class="create">Create</button>
+                    <button class="index">Back</button>
+                </div>
+                </div>`;
+        }
+
+
+
+        // Part 2 views
+        const formatDate = (d) => d ? d.split("-").reverse().join("/") : "No release date";
+
+        const searchView = (query = "", message = null) => {
+            const tokenBox = getToken() ? "" : `
+                <div class="token-box">
+                    <b>API key needed.</b> Paste your TMDb <i>API Read Access Token</i> (the long one that starts with <code>eyJ</code>).
+                    It is saved only in this browser (localStorage), never in the code.
+                    <div class="search-row" style="margin-top:8px">
+                        <input type="password" id="token" placeholder="TMDb API Read Access Token">
+                        <button class="save-token">Save key</button>
+                    </div>
+                </div>`;
+            const changeKey = (!tokenBox && localStorage.tmdb_token)
+                ? `<button class="clear-token">Change API key</button>` : "";
+
+            return `${crumb(HOME, { text: "Search" })}<h2>Search movies in TMDb</h2>
+                <div class="card">
+                    <p class="hint">Type the title of a movie and press <b>Search</b> (or Enter). Then add the ones you like to your list.</p>
+                    ${tokenBox}
+                    <div class="search-row">
+                        <input type="text" id="query" placeholder="e.g. Interstellar" value="${esc(query)}">
+                        <button class="search">Search</button>
+                    </div>
+                    <div id="message" class="message ${message ? message.type : ""}">${message ? esc(message.text) : ""}</div>
+                    <div class="actions">
+                        <button class="index">Back</button>
+                        ${changeKey}
+                    </div>
+                </div>`;
+        };
+
+
+        const resultsView = (results) => {
+            let view = `${crumb(HOME, SEARCH, { text: "Results" })}<h2>Results for “${esc(lastQuery)}”</h2>
+                <div class="search-row" style="margin-bottom:14px">
+                    <input type="text" id="query" placeholder="Search another movie" value="${esc(lastQuery)}">
+                    <button class="search">Search</button>
+                    <button class="my-keywords">My keywords</button>
+                    <button class="index">Back</button>
+                </div>
+                <div id="message" class="message"></div>`;
+
+            if (results.length === 0) {
+                return view + `<div class="empty">No movies found for “${esc(lastQuery)}”.<br>Check the spelling or try another title.</div>`;
+            }
+
+            view += `<div class="movies" style="margin-top:14px">`;
+            for (const m of results) {
+                const poster = m.poster_path ? TMDB_IMG + m.poster_path : "files/noimage.png";
+                view += `
+                <div class="movie result" style="--i:${Math.min(results.indexOf(m), 10)}">
+                    <div class="movie-img">
+                        <img src="${esc(poster)}" alt="Poster of ${esc(m.title)}" loading="lazy" onerror="this.src='files/noimage.png'"/>
+                    </div>
+                    <h3 class="title" title="${esc(m.title)}">${esc(m.title)}</h3>
+                    <div class="meta">${formatDate(m.release_date)}${m.vote_average ? " · ★ " + m.vote_average.toFixed(1) : ""}</div>
+                    <div class="overview">${esc(m.overview) || "<em>No synopsis available.</em>"}</div>
+                    <div class="actions">
+                        <button class="add-from-api" data-my-id="${m.id}">Add</button>
+                        <button class="keywords" data-my-id="${m.id}">Keywords</button>
+                    </div>
+                </div>\n`;
+            }
+            view += `</div>`;
+            return view;
+        };
+
+
+
+        // Breadcrumb navigation (internal links to go back to a previous section)
+        const crumb = (...items) => `<nav class="breadcrumb" aria-label="Breadcrumb"><ol>` +
+            items.map((it, i) => i === items.length - 1
+                ? `<li aria-current="page">${esc(it.text)}</li>`
+                : `<li><a href="#" class="${it.cls}">${esc(it.text)}</a></li>`).join("") +
+            `</ol></nav>`;
+        const HOME = { text: "Home", cls: "index" };
+        const SEARCH = { text: "Search", cls: "search-view" };
+        const RESULTS = { text: "Results", cls: "back-results" };
+
+        // Part 3 views
+        const getMyKeywords = () => JSON.parse(localStorage.my_keywords);
+
+        // keywordsView(movieId): shows the keywords of a movie (already processed and saved in keywordsCache)
+        const keywordsView = (movieId) => {
+            const keywords = keywordsCache[movieId] || [];
+            const movie = lastResults.find(m => m.id === Number(movieId));
+            const mine = getMyKeywords();
+
+            let view = `${crumb(HOME, SEARCH, RESULTS, { text: "Keywords" })}<h2>Keywords: ${movie ? esc(movie.title) : "movie " + esc(movieId)}</h2>
+                <div class="card">
+                    <p class="hint">Press <b>Add to my list</b> to save the keywords you are interested in, or <b>drag</b> a keyword to the box at the bottom.</p>`;
+
+            if (keywords.length === 0) {
+                view += `<div class="empty">This movie has no keywords in TMDb.</div>`;
+            } else {
+                view += `<ul class="keyword-list">`;
+                for (const k of keywords) {
+                    const added = mine.includes(k);
+                    view += `<li class="kw-item" draggable="true" data-keyword="${esc(k)}">
+                        <span>${esc(k)}</span>
+                        <button class="add-keyword" data-keyword="${esc(k)}" ${added ? "disabled" : ""}>${added ? "In my list" : "Add to my list"}</button>
+                    </li>`;
+                }
+                view += `</ul>`;
+            }
+
+            if (keywords.length > 0) {
+                view += `<div class="dropzone" data-action="add">Drop a keyword here to add it to my list</div>`;
+            }
+
+            view += `<div id="message" class="message"></div>
+                    <div class="actions">
+                        <button class="back-results">Back to results</button>
+                        <button class="my-keywords">My keywords</button>
+                    </div>
+                </div>`;
+            return view;
+        };
+
+
+        const myKeywordsView = () => {
+            const keywords = getMyKeywords();
+
+            let view = `${crumb(HOME, { text: "My keywords" })}<h2>My keywords</h2>
+                <div class="card">
+                    <p class="hint">Your personal list of keywords (${keywords.length}). Press <b>Delete</b> to remove one, or <b>drag</b> it to the box at the bottom.</p>`;
+
+            if (keywords.length === 0) {
+                view += `<div class="empty">Your list is empty.<br>Search a movie, open its <b>Keywords</b> and add the ones you like.</div>`;
+            } else {
+                view += `<ul class="keyword-list">`;
+                for (const k of keywords) {
+                    view += `<li class="kw-item" draggable="true" data-keyword="${esc(k)}">
+                        <span>${esc(k)}</span>
+                        <button class="delete-keyword" data-keyword="${esc(k)}">Delete</button>
+                    </li>`;
+                }
+                view += `</ul>`;
+            }
+
+            if (keywords.length > 0) {
+                view += `<div class="dropzone trash" data-action="delete">Drop a keyword here to delete it</div>`;
+            }
+
+            view += `<div class="actions">
+                        <button class="index">Back</button>
+                    </div>
+                </div>`;
+            return view;
+        };
+
+
+
+        // CONTROLLERS 
+        const indexContr = () => {
+         searchCounter++;   // cancels any search still in progress
+         let my_movies = JSON.parse(localStorage.my_movies);
+         document.getElementById('main').innerHTML = indexView(my_movies);
+         };
+
+
+        const showContr = (i) => {
+            let movie = JSON.parse(localStorage.my_movies)[i];
+            document.getElementById('main').innerHTML = showView(movie);
+
+        };
+
+        const newContr = () => {
+            document.getElementById('main').innerHTML = newView();
+
+        };
+
+        const createContr = () => {
+            let title     = document.getElementById('titulo').value.trim();
+            let director  = document.getElementById('director').value.trim();
+            let thumbnail = document.getElementById('miniatura').value.trim();
+
+            if (title === "") {
+                alert("The title cannot be empty.");
+                return;
+            }
+
+            let my_movies = JSON.parse(localStorage.my_movies);
+            my_movies.push({
+                title:     title,
+                director:  director,
+                thumbnail: thumbnail || "files/noimage.png"
+            });
+            localStorage.my_movies = JSON.stringify(my_movies);
+            indexContr();
+        };
+
+        const editContr = (i) => {
+            let movie = JSON.parse(localStorage.my_movies)[i];
+            document.getElementById('main').innerHTML = editView(i, movie);
+        };
+
+
+        const updateContr = (i) => {
+            let my_movies = JSON.parse(localStorage.my_movies);
+            my_movies[i].title    = document.getElementById('title').value;
+            my_movies[i].director  = document.getElementById('director').value;
+            my_movies[i].thumbnail = document.getElementById('thumbnail').value;
+            localStorage.my_movies = JSON.stringify(my_movies);
+            indexContr();
+        };
+
+
+        const deleteContr = (i) => {
+            if (confirm("Are you sure you want to delete this movie?")) {
+                let my_movies = JSON.parse(localStorage.my_movies);
+                my_movies.splice(i, 1);
+                localStorage.my_movies = JSON.stringify(my_movies);
+                indexContr();
+            }
+        };
+
+
+        const resetContr = () => {
+            localStorage.my_movies = JSON.stringify(initial_movies);
+            // Compatibilidad con tests/checks.js, que lee la clave antigua "mis_peliculas"
+            localStorage.mis_peliculas = localStorage.my_movies;
+            indexContr();
+        };
+
+
+        // Part 2 controllers
+        const showMessage = (type, text) => {
+            const el = document.getElementById('message');
+            if (el) { el.className = "message " + type; el.textContent = text; }
+        };
+
+        // GET request to TMDb with the token in the Authorization header. Throws Error with a clear message.
+        const tmdbFetch = async (path) => {
+            let response;
+            try {
+                response = await fetch(TMDB_API + path, {
+                    method: 'GET',
+                    headers: { accept: 'application/json', Authorization: 'Bearer ' + getToken() }
+                });
+            } catch (e) {
+                throw new Error("Could not connect to TMDb. Check your Internet connection and try again.");
+            }
+            if (response.status === 401) throw new Error("The API key is not valid. Check your TMDb token.");
+            if (!response.ok)            throw new Error("TMDb returned an error (" + response.status + "). Try again later.");
+            return response.json();
+        };
+
+        const searchFormContr = () => {
+            searchCounter++;
+            document.getElementById('main').innerHTML = searchView();
+        };
+
+        const saveTokenContr = () => {
+            const token = document.getElementById('token').value.trim();
+            const query = document.getElementById('query').value;
+            if (token === "") {
+                showMessage("error", "Paste your TMDb token first.");
+                return;
+            }
+            localStorage.tmdb_token = token;
+            document.getElementById('main').innerHTML = searchView(query, { type: "success", text: "API key saved in this browser." });
+        };
+
+        const clearTokenContr = () => {
+            delete localStorage.tmdb_token;
+            document.getElementById('main').innerHTML = searchView();
+        };
+
+        const VALID_QUERY = /^[\p{L}\p{N}\s'’:.,!?&()\-]+$/u;
+
+        const searchContr = async (query) => {
+            const main = document.getElementById('main');
+            query = (query || "").trim();
+
+            if (query === "") {
+                main.innerHTML = searchView(query, { type: "error", text: "Type the title of a movie to search." });
+                return;
+            }
+            if (!VALID_QUERY.test(query)) {
+                main.innerHTML = searchView(query, { type: "error", text: "The search contains invalid characters. Use only letters, numbers and basic punctuation." });
+                return;
+            }
+            if (!getToken()) {
+                main.innerHTML = searchView(query, { type: "error", text: "There is no API key. Paste your TMDb token in the box above." });
+                return;
+            }
+
+            const id = ++searchCounter;
+            showMessage("info", "Searching...");
+            try {
+                const data = await tmdbFetch('/search/movie?language=es-ES&include_adult=false&query=' + encodeURIComponent(query));
+                if (id !== searchCounter) return;   // the user went elsewhere or searched again
+                lastQuery = query;
+                lastResults = Array.isArray(data.results) ? data.results : [];
+                main.innerHTML = resultsView(lastResults);
+            } catch (err) {
+                if (id !== searchCounter) return;
+                main.innerHTML = searchView(query, { type: "error", text: err.message });
+            }
+        };
+
+        const isDuplicate = (movies, movie) => movies.some(m =>
+            (movie.poster_path && m.thumbnail === movie.thumbnail) ||
+            ((m.title || "").toLowerCase() === movie.title.toLowerCase() &&
+             (m.director || "").toLowerCase() === movie.director.toLowerCase()));
+
+        const addFromAPIContr = async (movie) => {
+            if (!movie) return;
+            const btn = document.querySelector(`.add-from-api[data-my-id="${movie.id}"]`);
+            if (btn) { btn.disabled = true; btn.textContent = "Adding..."; }   // avoids double clicks
+
+            try {
+                if (!movie.title) throw new Error("This movie has no title and cannot be added.");
+
+                const newMovie = {
+                    title: movie.title,
+                    director: "",
+                    thumbnail: movie.poster_path ? TMDB_IMG + movie.poster_path : "files/noimage.png",
+                    poster_path: movie.poster_path
+                };
+
+                // already in the database? (checked before asking for the director)
+                if (isDuplicate(JSON.parse(localStorage.my_movies), { ...newMovie, director: "\u0000" })) {
+                    showMessage("error", `“${movie.title}” is already in your movies.`);
+                    if (btn) btn.textContent = "Already added";
+                    return;
+                }
+
+                // the search result has no director: it is in the credits of the movie
+                try {
+                    const credits = await tmdbFetch(`/movie/${movie.id}/credits`);
+                    newMovie.director = (credits.crew || []).filter(c => c.job === "Director").map(c => c.name).join(", ");
+                } catch (e) { /* if the credits fail the movie is added without director */ }
+
+                const my_movies = JSON.parse(localStorage.my_movies);
+                if (isDuplicate(my_movies, newMovie)) {
+                    showMessage("error", `“${movie.title}” is already in your movies.`);
+                    if (btn) btn.textContent = "Already added";
+                    return;
+                }
+
+                // same structure as the movies created by hand
+                my_movies.push({ title: newMovie.title, director: newMovie.director, thumbnail: newMovie.thumbnail });
+                localStorage.my_movies = JSON.stringify(my_movies);
+                showMessage("success", `“${movie.title}” has been added to your movies.`);
+                if (btn) btn.textContent = "Added ✓";
+            } catch (err) {
+                showMessage("error", err.message);
+                if (btn) { btn.disabled = false; btn.textContent = "Add"; }
+            }
+        };
+
+
+        // Part 3 controllers
+
+        // Cleans one keyword: removes special characters, extra spaces and converts it to lowercase
+        const cleanKeyword = (keyword) => {
+            return String(keyword)
+                .replace(/[-_\/]+/g, " ")                 // sci-fi -> sci fi (so words are not glued together)
+                .replace(/[^a-zñáéíóúüç0-9 ]+/igm, "")    // Remove special characters
+                .replace(/\s+/g, " ")                     // Several spaces -> one
+                .trim()                                   // Remove leading and trailing spaces
+                .toLowerCase();                           // Convert to lowercase
+        };
+
+        // Receives the array of objects of TMDb ([{id, name}, ...]) and returns an ordered list of
+        // clean strings, in lowercase and without duplicates or empty values
+        const processKeywords = (keywords) => {
+            const clean = new Set();                      // a Set avoids duplicates
+            for (const k of keywords || []) {
+                const word = cleanKeyword(k && k.name !== undefined ? k.name : k);
+                if (word !== "") clean.add(word);
+            }
+            return [...clean].sort((a, b) => a.localeCompare(b, "es"));
+        };
+
+        const keywordsContr = async (movieId) => {
+            const main = document.getElementById('main');
+
+            if (!getToken()) {
+                showMessage("error", "There is no API key. Go back and paste your TMDb token in Search TMDb.");
+                return;
+            }
+
+            const id = ++searchCounter;
+            showMessage("info", "Loading keywords...");
+            try {
+                const data = await tmdbFetch(`/movie/${movieId}/keywords`);
+                if (id !== searchCounter) return;
+                keywordsCache[movieId] = processKeywords(data.keywords);
+                main.innerHTML = keywordsView(movieId);
+            } catch (err) {
+                if (id !== searchCounter) return;
+                showMessage("error", err.message);
+            }
+        };
+
+        // Saves a keyword in the personalised list (localStorage). Returns true if it was added.
+        const addKeywordToList = (keyword) => {
+            const word = cleanKeyword(keyword);
+            if (word === "") return false;
+
+            const mine = getMyKeywords();
+            if (mine.includes(word)) return false;       // already in the list
+
+            mine.push(word);
+            mine.sort((a, b) => a.localeCompare(b, "es"));
+            localStorage.my_keywords = JSON.stringify(mine);
+            return true;
+        };
+
+        const addKeywordContr = (keyword, btn) => {
+            const added = addKeywordToList(keyword);
+            showMessage(added ? "success" : "error",
+                added ? `“${keyword}” has been added to your list.` : `“${keyword}” is already in your list.`);
+            if (btn) { btn.disabled = true; btn.textContent = "In my list"; }
+        };
+
+        const myKeywordsContr = () => {
+            searchCounter++;
+            document.getElementById('main').innerHTML = myKeywordsView();
+        };
+
+        const deleteKeywordContr = (keyword) => {
+            const mine = getMyKeywords().filter(k => k !== keyword);
+            localStorage.my_keywords = JSON.stringify(mine);
+            document.getElementById('main').innerHTML = myKeywordsView();
+        };
+
+        const backToResultsContr = () => {
+            searchCounter++;
+            document.getElementById('main').innerHTML = resultsView(lastResults);
+        };
+
+
+        // EVENT ROUTER
+        const matchEvent = (ev, sel) => ev.target.matches(sel);
+        const myId = (ev) => Number(ev.target.dataset.myId);
+
+        document.addEventListener('click', ev => {
+            if (ev.target.matches('a[href="#"]')) ev.preventDefault();   // internal links (breadcrumb, logo)
+            if      (matchEvent(ev, '.index'))  indexContr  ();
+            else if (matchEvent(ev, '.edit'))   editContr   (myId(ev));
+            else if (matchEvent(ev, '.update')) updateContr (myId(ev));
+            else if (matchEvent(ev, '.show'))   showContr   (myId(ev));
+            else if (matchEvent(ev, '.new'))    newContr    ();
+            else if (matchEvent(ev, '.create')) createContr ();
+            else if (matchEvent(ev, '.delete')) deleteContr (myId(ev));
+            else if (matchEvent(ev, '.reset'))  resetContr  ();
+            else if (matchEvent(ev, '.search-view'))   searchFormContr ();
+            else if (matchEvent(ev, '.search'))        searchContr (document.getElementById('query').value);
+            else if (matchEvent(ev, '.add-from-api'))  addFromAPIContr (lastResults.find(m => m.id === myId(ev)));
+            else if (matchEvent(ev, '.save-token'))    saveTokenContr ();
+            else if (matchEvent(ev, '.clear-token'))   clearTokenContr ();
+            else if (matchEvent(ev, '.keywords'))      keywordsContr (myId(ev));
+            else if (matchEvent(ev, '.add-keyword'))   addKeywordContr (ev.target.dataset.keyword, ev.target);
+            else if (matchEvent(ev, '.my-keywords'))   myKeywordsContr ();
+            else if (matchEvent(ev, '.delete-keyword')) deleteKeywordContr (ev.target.dataset.keyword);
+            else if (matchEvent(ev, '.back-results'))  backToResultsContr ();
+        })
+
+        // GESTURES: drag & drop of keywords (HTML5 drag and drop)
+        // Drag a keyword and drop it on the dropzone: "add" (keywords of a movie) or "delete" (my list)
+        const closest = (ev, sel) => (ev.target.closest ? ev.target.closest(sel) : null);
+
+        document.addEventListener('dragstart', ev => {
+            const item = closest(ev, '.kw-item');
+            if (!item) return;
+            ev.dataTransfer.setData('text/plain', item.dataset.keyword);
+            ev.dataTransfer.effectAllowed = 'copyMove';
+            item.classList.add('dragging');
+        });
+
+        document.addEventListener('dragend', () => {
+            document.querySelectorAll('.dragging, .over').forEach(el => el.classList.remove('dragging', 'over'));
+        });
+
+        document.addEventListener('dragover', ev => {
+            const zone = closest(ev, '.dropzone');
+            if (!zone) return;
+            ev.preventDefault();                 // allows the drop
+            zone.classList.add('over');
+        });
+
+        document.addEventListener('dragleave', ev => {
+            const zone = closest(ev, '.dropzone');
+            if (zone && !zone.contains(ev.relatedTarget)) zone.classList.remove('over');
+        });
+
+        document.addEventListener('drop', ev => {
+            const zone = closest(ev, '.dropzone');
+            if (!zone) return;
+            ev.preventDefault();
+            zone.classList.remove('over');
+            const keyword = cleanKeyword(ev.dataTransfer.getData('text/plain'));
+            if (keyword === "") return;
+            if (zone.dataset.action === "add") {
+                addKeywordContr(keyword, document.querySelector(`.add-keyword[data-keyword="${keyword}"]`));
+            } else if (zone.dataset.action === "delete") {
+                deleteKeywordContr(keyword);
+            }
+        });
+
+        // Enter key in the search field (or in the token field)
+        document.addEventListener('keydown', ev => {
+            if (ev.key !== 'Enter') return;
+            if      (matchEvent(ev, '#query')) searchContr(ev.target.value);
+            else if (matchEvent(ev, '#token')) saveTokenContr();
+        })
+
+        
+        
+        // Initialization        
+        document.addEventListener('DOMContentLoaded', indexContr);
+    </script>
+</head>
+
+<body>
+
+    <header>
+        <h1>
+            <a href="#" class="index" title="Back to the main page">
+                <!-- Inline SVG: styled and animated with CSS -->
+                <svg class="logo" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <circle cx="12" cy="12" r="10"/>
+                    <polygon points="10,8 16,12 10,16"/>
+                </svg>
+                My Little Netflix
+            </a>
+        </h1>
+    </header>
+
+    <main id="main"> <!-- The view is included here --> </main>
+    <noscript>This application needs JavaScript to work.</noscript>
+
+    <footer>
+        <p>Movie data provided by <a href="https://www.themoviedb.org" target="_blank" rel="noopener">TMDb</a>.
+        This product uses the TMDB API but is not endorsed or certified by TMDB.</p>
+    </footer>
+
+</body>
+</html>

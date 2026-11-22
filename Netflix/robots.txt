@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /tests/
+
+Sitemap: https://danielhernaizz.github.io/Netflix2_completo/sitemap.xml
